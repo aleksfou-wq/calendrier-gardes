@@ -1,0 +1,301 @@
+name: App iPhone
+on: [push, workflow_dispatch]
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.d.outputs.page_url }}
+    steps:
+      - name: Creer le site
+        run: |
+          mkdir -p site
+          cat > site/index.html <<'FINFICHIER'
+          <!DOCTYPE html>
+          <html lang="fr">
+          <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+          <meta name="apple-mobile-web-app-capable" content="yes">
+          <meta name="mobile-web-app-capable" content="yes">
+          <meta name="apple-mobile-web-app-title" content="Semaines">
+          <meta name="apple-mobile-web-app-status-bar-style" content="default">
+          <link rel="apple-touch-icon" href="icon-180.png">
+          <link rel="icon" href="icon-180.png">
+          <link rel="manifest" href="manifest.json">
+          <meta name="theme-color" content="#1e5bd8">
+          <title>Semaines paires impaires</title>
+          <style>
+          /*
+          VOICE: clair, pratique, lisible d'un coup d'œil sur téléphone
+          IDEA: un calendrier mural où chaque ligne de semaine est surlignée au feutre
+          PICTURE: le mois lui-même, lignes bleues (paires) et roses (impaires)
+          COLOUR and TYPE: bleu #1e5bd8, rose #e8508f, fond blanc / nuit #0d1220 ; Outfit
+          LAYOUT: carte "cette semaine" en haut, mois en dessous, semaines à venir
+          */
+          :root{color-scheme:light dark;
+          --bg:light-dark(#f6f7fb,#0d1220);--card:light-dark(#fff,#161d31);--ink:light-dark(#141a2b,#eef1f8);--mute:light-dark(#69708a,#98a0ba);
+          --blue:#1e5bd8;--blueS:light-dark(#dfe8fd,#1c2d55);--pink:#e8508f;--pinkS:light-dark(#fde3ee,#4a1f33);--line:light-dark(#e4e7ef,#252e47)}
+          :root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+          *{box-sizing:border-box;min-width:0}
+          body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,sans-serif;overflow-x:clip}
+          main{max-width:560px;margin:0 auto;padding:calc(16px + env(safe-area-inset-top)) max(4vw,12px,env(safe-area-inset-right)) calc(40px + env(safe-area-inset-bottom)) max(4vw,12px,env(safe-area-inset-left))}
+          .now{border-radius:22px;padding:20px 22px;color:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 10px 30px -12px rgba(0,0,0,.35)}
+          .now.p{background:linear-gradient(135deg,#2f6ff0,#1a4cbd)}.now.i{background:linear-gradient(135deg,#f26aa2,#d23d7c)}
+          .now small{font-size:14px;opacity:.9}.now h1{margin:2px 0 0;font-size:32px;line-height:1.05;font-weight:800}
+          .now .n{font-size:52px;font-weight:800;line-height:1}
+          .nav{display:flex;align-items:center;gap:8px;margin:22px 0 10px}
+          .nav h2{flex:1;margin:0;font-size:22px;text-transform:capitalize}
+          button{font:inherit;min-height:44px;min-width:44px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;cursor:pointer;font-size:16px}
+          button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+          #today{padding:0 14px;font-size:14px}
+          .cal{background:var(--card);border-radius:18px;padding:8px;border:1px solid var(--line);touch-action:pan-y}
+          .row{display:grid;grid-template-columns:44px repeat(7,minmax(0,1fr));gap:2px;align-items:center;border-radius:12px;margin:3px 0}
+          .row.h{color:var(--mute);font-size:13px;text-align:center;padding:4px 0}
+          .row.p{background:var(--blueS)}.row.i{background:var(--pinkS)}
+          .wk{font-size:13px;font-weight:600;text-align:center;color:#fff;border-radius:9px;margin:4px;padding:6px 0}
+          .p .wk{background:var(--blue)}.i .wk{background:var(--pink)}
+          .d{text-align:center;padding:10px 0;font-size:16px;border-radius:50%;aspect-ratio:1;display:grid;place-items:center;max-width:40px;margin:auto;width:100%}
+          .d.o{opacity:.35}.d.we{color:var(--mute)}
+          .d{cursor:pointer}.d.t{background:var(--ink);color:var(--bg);font-weight:800}
+          .d.s{box-shadow:inset 0 0 0 3px var(--ink);font-weight:800}.d.t.s{box-shadow:0 0 0 3px var(--bg),0 0 0 5px var(--ink)}
+          .pick{display:flex;gap:8px;align-items:center;margin:14px 0 0;font-size:15px;color:var(--mute)}
+          .pick input{flex:1;font:inherit;font-size:16px;min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink)}
+          .up li.cur{font-weight:700;box-shadow:0 0 0 2px var(--ink) inset}
+          .leg{display:flex;gap:16px;margin:12px 4px;font-size:14px;color:var(--mute);flex-wrap:wrap}
+          .leg i{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:-2px;margin-right:6px}
+
+          .d{position:relative;aspect-ratio:auto;border-radius:12px;height:44px;max-width:44px;padding:0}
+          .d.t{border-radius:50%}
+          .d.f{color:#d7263d;font-weight:800}.d.t.f{color:#ff8a9a}
+          .d.v::after{content:"";position:absolute;left:6px;right:6px;bottom:3px;height:4px;border-radius:2px;background:#f5b700}
+          .d.e::before{content:"";position:absolute;top:4px;right:5px;width:6px;height:6px;border-radius:50%;background:var(--mute)}
+          .d.f.e::before{background:#d7263d}
+          .det{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px 18px;margin-top:14px}
+          .det h4{margin:0;font-size:20px;line-height:1.2}.det h4::first-letter{text-transform:uppercase}
+          .det .st{color:var(--mute);font-size:15px;margin:2px 0 8px}
+          .tags{display:flex;flex-wrap:wrap;gap:6px}
+          .tag{font-size:14px;padding:4px 10px;border-radius:99px;background:var(--bg);border:1px solid var(--line)}
+          .tag.f{background:#d7263d;color:#fff;border-color:#d7263d;font-weight:600}
+          .tag.v{background:#fff1bf;color:#5c4700;border-color:#f5b700}
+          .ev{list-style:none;margin:0;padding:0;background:var(--card);border:1px solid var(--line);border-radius:14px}
+          .ev li{display:grid;grid-template-columns:64px minmax(0,1fr);gap:10px;padding:9px 14px;border-top:1px solid var(--line);font-size:15px;cursor:pointer}
+          .ev li:first-child{border-top:0}
+          .ev li b{white-space:nowrap}.ev li.f span{color:#d7263d;font-weight:700}
+          .ev .empty{display:block;color:var(--mute);cursor:default}
+          .leg i.vb{background:#f5b700;height:5px;vertical-align:3px}
+          .leg i.fr{background:#d7263d}
+          .mo{width:15px;height:15px;vertical-align:-2px;margin-right:6px}
+          .nav h2{font-size:21px;line-height:1.15}
+          h3{font-size:18px;margin:24px 4px 8px}
+          .up{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+          .up li{display:flex;justify-content:space-between;gap:10px;background:var(--card);border:1px solid var(--line);border-left:6px solid;border-radius:12px;padding:10px 14px;font-size:15px}
+          .up li.p{border-left-color:var(--blue)}.up li.i{border-left-color:var(--pink)}
+          .up b{white-space:nowrap}
+          .tip{font-size:13px;color:var(--mute);margin:24px 4px 0}
+          @media(prefers-reduced-motion:no-preference){.cal{transition:opacity .15s}.cal.f{opacity:.3}}
+          </style>
+          </head>
+          <body>
+          <main>
+            <section class="now" id="now"><div><small id="nowSub">Cette semaine</small><h1 id="nowT">—</h1></div><div class="n" id="nowN">—</div></section>
+            <label class="pick">Aller au <input type="date" id="date"></label>
+            <div class="nav">
+              <button id="prev" aria-label="Mois précédent">‹</button>
+              <h2 id="mon">—</h2>
+              <button id="today">Aujourd'hui</button>
+              <button id="next" aria-label="Mois suivant">›</button>
+            </div>
+            <div class="cal" id="cal"></div>
+            <div class="leg"><span><i style="background:var(--blue)"></i>Semaine paire</span><span><i style="background:var(--pink)"></i>Semaine impaire</span><span><i class="fr"></i>Jour férié</span><span><i class="vb"></i>Vacances scolaires (zone B)</span></div>
+            <section class="det" id="det"></section>
+            <h3 id="evT">Ce mois-ci</h3>
+            <ul class="ev" id="ev"></ul>
+            <h3 id="upT">Les 8 prochaines semaines</h3>
+            <ul class="up" id="up"></ul>
+            <p class="tip">Numéros de semaine ISO (norme française, du lundi au dimanche). Jours fériés de Moselle inclus (Vendredi saint, 26 décembre). Vacances scolaires zone B (académie Nancy-Metz) connues jusqu'à l'été 2028. Lune et saisons calculées (à l'heure près). Se met à jour tout seul à minuit. Touche un jour pour voir les 8 semaines à partir de cette date. Glisse à gauche/droite pour changer de mois.</p>
+          </main>
+          <script>
+          {
+          const MO=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+          const AB=['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+          const isoWeek=d=>{const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const day=t.getUTCDay()||7;t.setUTCDate(t.getUTCDate()+4-day);const y=new Date(Date.UTC(t.getUTCFullYear(),0,1));return Math.ceil(((t-y)/864e5+1)/7)};
+          const mon=d=>{const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()-((x.getDay()+6)%7));return x};
+          const add=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
+          const same=(a,b)=>a.toDateString()===b.toDateString();
+          const fmt=(d,y)=>d.getDate()+' '+AB[d.getMonth()]+(y?' '+d.getFullYear():'');
+          const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+          const $=id=>document.getElementById(id);
+          const SAINTS=[
+          "Jour de l'An|Basile|Geneviève|Odilon|Édouard|Mélaine|Raymond|Lucien|Alix|Guillaume|Paulin|Tatiana|Yvette|Nina|Rémi|Marcel|Roseline|Prisca|Marius|Sébastien|Agnès|Vincent|Barnard|François de Sales|Conversion de Paul|Paule|Angèle|Thomas d'Aquin|Gildas|Martine|Marcelle",
+          "Ella|Présentation du Seigneur|Blaise|Véronique|Agathe|Gaston|Eugénie|Jacqueline|Apolline|Arnaud|N.-D. de Lourdes|Félix|Béatrice|Valentin|Claude|Julienne|Alexis|Bernadette|Gabin|Aimée|Pierre Damien|Isabelle|Lazare|Modeste|Roméo|Nestor|Honorine|Romain|Auguste",
+          "Aubin|Charles le Bon|Guénolé|Casimir|Olive|Colette|Félicité|Jean de Dieu|Françoise|Vivien|Rosine|Justine|Rodrigue|Mathilde|Louise|Bénédicte|Patrice|Cyrille|Joseph|Herbert|Clémence|Léa|Victorien|Catherine de Suède|Annonciation|Larissa|Habib|Gontran|Gwladys|Amédée|Benjamin",
+          "Hugues|Sandrine|Richard|Isidore|Irène|Marcellin|Jean-Baptiste de la Salle|Julie|Gautier|Fulbert|Stanislas|Jules|Ida|Maxime|Paterne|Benoît-Joseph|Anicet|Parfait|Emma|Odette|Anselme|Alexandre|Georges|Fidèle|Marc|Alida|Zita|Valérie|Catherine de Sienne|Robert",
+          "Joseph artisan|Boris|Philippe et Jacques|Sylvain|Judith|Prudence|Gisèle|Désiré|Pacôme|Solange|Estelle|Achille|Rolande|Matthias|Denise|Honoré|Pascal|Éric|Yves|Bernardin|Constantin|Émile|Didier|Donatien|Sophie|Bérenger|Augustin|Germain|Aymar|Ferdinand|Visitation",
+          "Justin|Blandine|Kévin|Clotilde|Igor|Norbert|Gilbert|Médard|Diane|Landry|Barnabé|Guy|Antoine de Padoue|Élisée|Germaine|Jean-François Régis|Hervé|Léonce|Romuald|Silvère|Rodolphe|Alban|Audrey|Jean-Baptiste|Prosper|Anthelme|Fernand|Irénée|Pierre et Paul|Martial",
+          "Thierry|Martinien|Thomas|Florent|Antoine|Mariette|Raoul|Thibaut|Amandine|Ulrich|Benoît|Olivier|Henri et Joël|Camille|Donald|N.-D. du Mont-Carmel|Charlotte|Frédéric|Arsène|Marina|Victor|Marie-Madeleine|Brigitte|Christine|Jacques|Anne et Joachim|Nathalie|Samson|Marthe|Juliette|Ignace de Loyola",
+          "Alphonse|Julien Eymard|Lydie|Jean-Marie Vianney|Abel|Transfiguration|Gaétan|Dominique|Amour|Laurent|Claire|Clarisse|Hippolyte|Évrard|Marie|Armel|Hyacinthe|Hélène|Jean Eudes|Bernard|Christophe|Fabrice|Rose de Lima|Barthélemy|Louis|Natacha|Monique|Augustin|Sabine|Fiacre|Aristide",
+          "Gilles|Ingrid|Grégoire|Rosalie|Raïssa|Bertrand|Reine|Nativité de Marie|Alain|Inès|Adelphe|Apollinaire|Aimé|Croix glorieuse|Roland|Édith|Renaud|Nadège|Émilie|Davy|Matthieu|Maurice|Constant|Thècle|Hermann|Côme et Damien|Vincent de Paul|Venceslas|Michel, Gabriel et Raphaël|Jérôme",
+          "Thérèse de l'Enfant-Jésus|Léger|Gérard|François d'Assise|Fleur|Bruno|Serge|Pélagie|Denis|Ghislain|Firmin|Wilfried|Géraud|Juste|Thérèse d'Avila|Edwige|Baudouin|Luc|René|Adeline|Céline|Élodie|Jean de Capistran|Florentin|Crépin|Dimitri|Émeline|Simon et Jude|Narcisse|Bienvenue|Quentin",
+          "Toussaint|Défunts|Hubert|Charles|Sylvie|Bertille|Carine|Geoffroy|Théodore|Léon|Martin|Christian|Brice|Sidoine|Albert|Marguerite|Élisabeth|Aude|Tanguy|Edmond|Présentation de Marie|Cécile|Clément|Flora|Catherine|Delphine|Séverin|Jacques de la Marche|Saturnin|André",
+          "Florence|Viviane|François-Xavier|Barbara|Gérald|Nicolas|Ambroise|Immaculée Conception|Pierre Fourier|Romaric|Daniel|Jeanne-Françoise de Chantal|Lucie|Odile|Ninon|Alice|Gaël|Gatien|Urbain|Théophile|Pierre Canisius|Françoise-Xavière|Armand|Adèle|Noël|Étienne|Jean|Innocents|David|Roger|Sylvestre"
+          ].map(m=>m.split('|'));
+          // Vacances scolaires zone B : [début (1er jour sans classe), reprise]
+          const VAC=[
+          ['2025-10-18','2025-11-03','Vacances de la Toussaint'],['2025-12-20','2026-01-05','Vacances de Noël'],
+          ['2026-02-14','2026-03-02','Vacances d\'hiver'],['2026-04-11','2026-04-27','Vacances de printemps'],['2026-07-04','2026-09-01','Vacances d\'été'],
+          ['2026-10-17','2026-11-02','Vacances de la Toussaint'],['2026-12-19','2027-01-04','Vacances de Noël'],
+          ['2027-02-20','2027-03-08','Vacances d\'hiver'],['2027-04-17','2027-05-03','Vacances de printemps'],['2027-05-07','2027-05-08','Pont de l\'Ascension'],['2027-07-03','2027-09-02','Vacances d\'été'],
+          ['2027-10-23','2027-11-08','Vacances de la Toussaint'],['2027-12-18','2028-01-03','Vacances de Noël'],
+          ['2028-02-05','2028-02-21','Vacances d\'hiver'],['2028-04-08','2028-04-24','Vacances de printemps'],['2028-05-26','2028-05-28','Pont de l\'Ascension'],['2028-07-04','2028-09-01','Vacances d\'été (rentrée pas encore fixée)']
+          ].map(([a,b,n])=>[a,b,n]);
+          const vacOf=k=>{for(const v of VAC)if(k>=v[0]&&k<v[1])return v[2];return null};
+          function easter(y){const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),mo=Math.floor((h+l-7*m+114)/31),da=((h+l-7*m+114)%31)+1;return new Date(y,mo-1,da)}
+          const nthSun=(y,m,n)=>{const d=new Date(y,m,1);d.setDate(1+(7-d.getDay())%7+7*(n-1));return d};
+          const lastSun=(y,m)=>{const d=new Date(y,m+1,0);d.setDate(d.getDate()-d.getDay());return d};
+          const JD=jd=>new Date((jd-2440587.5)*864e5);
+          const SEAS=[[485,324.96,1934.136],[203,337.23,32964.467],[199,342.08,20.186],[182,27.85,445267.112],[156,73.14,45036.886],[136,171.52,22518.443],[77,222.54,65928.934],[74,296.72,3034.906],[70,243.58,9037.513],[58,119.81,33718.147],[52,297.17,150.678],[50,21.02,2281.226],[45,247.54,29929.562],[44,325.15,31555.956],[29,60.93,4443.417],[18,155.12,67555.328],[17,288.79,4562.452],[16,198.04,62894.029],[14,199.76,31436.921],[12,95.39,14577.848],[12,287.11,31931.756],[12,320.81,34777.259],[9,227.73,1222.114],[8,15.45,16859.074]];
+          function seasons(y){const Y=(y-2000)/1000;return[
+          [2451623.80984+365242.37404*Y+0.05169*Y*Y-0.00411*Y**3-0.00057*Y**4,'Printemps (équinoxe)'],
+          [2451716.56767+365241.62603*Y+0.00325*Y*Y+0.00888*Y**3-0.00030*Y**4,'Été (solstice)'],
+          [2451810.21715+365242.01767*Y-0.11575*Y*Y+0.00337*Y**3+0.00078*Y**4,'Automne (équinoxe)'],
+          [2451900.05952+365242.74049*Y-0.06223*Y*Y-0.00823*Y**3+0.00032*Y**4,'Hiver (solstice)']].map(([j,n])=>{const T=(j-2451545)/36525,W=(35999.373*T-2.47)*Math.PI/180,dl=1+0.0334*Math.cos(W)+0.0007*Math.cos(2*W);
+          const S=SEAS.reduce((a,[A,B,C])=>a+A*Math.cos((B+C*T)*Math.PI/180),0);return[JD(j+0.00001*S/dl-69/86400),n]})}
+          function moonPhase(k,ph){k=k+ph/4;const T=k/1236.85,r=Math.PI/180;
+          let jd=2451550.09766+29.530588861*k+0.00015437*T*T;const E=1-0.002516*T;
+          const M=(2.5534+29.10535670*k)*r,Mp=(201.5643+385.81693528*k)*r,F=(160.7108+390.67050284*k)*r,S=Math.sin;
+          if(ph===0)jd+=-0.40720*S(Mp)+0.17241*E*S(M)+0.01608*S(2*Mp)+0.01039*S(2*F)+0.00739*E*S(Mp-M)-0.00514*E*S(Mp+M)+0.00208*E*E*S(2*M);
+          else if(ph===2)jd+=-0.40614*S(Mp)+0.17302*E*S(M)+0.01614*S(2*Mp)+0.01043*S(2*F)+0.00734*E*S(Mp-M)-0.00515*E*S(Mp+M)+0.00209*E*E*S(2*M);
+          else{jd+=-0.62801*S(Mp)+0.17172*E*S(M)-0.01183*E*S(Mp+M)+0.00862*S(2*Mp)+0.00804*S(2*F)+0.00454*E*S(Mp-M)+0.00204*E*E*S(2*M);
+          const W=0.00306-0.00038*E*Math.cos(M)+0.00026*Math.cos(Mp)-0.00002*Math.cos(Mp-M);jd+=ph===1?W:-W}
+          return JD(jd-69/86400)}
+          const MOON=['Nouvelle lune','Premier quartier','Pleine lune','Dernier quartier'];
+          const MSYM=[0,1,2,3].map(p=>'<svg class="mo" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8.5" fill="'+(p===0?'currentColor':'none')+'" stroke="currentColor" stroke-width="1.6"/>'+(p===1?'<path d="M10 1.5a8.5 8.5 0 0 0 0 17z" fill="currentColor"/>':p===3?'<path d="M10 1.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"/>':'')+'</svg>');
+          const cache={};
+          function yearInfo(y){if(cache[y])return cache[y];const o={};const put=(d,txt,f,kind)=>{const k=iso(d);(o[k]=o[k]||[]).push({txt,f:!!f,kind:kind||''})};
+          const E=easter(y),ad=n=>add(E,n);
+          [[new Date(y,0,1),'Jour de l\'An'],[ad(-2),'Vendredi saint (Alsace-Moselle)'],[ad(1),'Lundi de Pâques'],[new Date(y,4,1),'Fête du Travail'],[new Date(y,4,8),'Victoire 1945'],[ad(39),'Ascension'],[ad(50),'Lundi de Pentecôte'],[new Date(y,6,14),'Fête nationale'],[new Date(y,7,15),'Assomption'],[new Date(y,10,1),'Toussaint'],[new Date(y,10,11),'Armistice 1918'],[new Date(y,11,25),'Noël'],[new Date(y,11,26),'Saint-Étienne (Alsace-Moselle)']].forEach(([d,t])=>put(d,t,1));
+          const pent=ad(49);let mf=lastSun(y,4);if(same(mf,pent))mf=nthSun(y,5,1);
+          [[new Date(y,0,6),'Épiphanie'],[new Date(y,1,2),'Chandeleur'],[new Date(y,1,14),'Saint-Valentin'],[ad(-47),'Mardi gras'],[ad(-46),'Mercredi des Cendres'],[nthSun(y,2,1),'Fête des grands-mères'],[new Date(y,3,1),'Poisson d\'avril'],[ad(-7),'Rameaux'],[E,'Pâques'],[pent,'Pentecôte'],[mf,'Fête des mères'],[nthSun(y,5,3),'Fête des pères'],[new Date(y,5,21),'Fête de la musique'],[new Date(y,9,31),'Halloween'],[new Date(y,11,6),'Saint-Nicolas'],[new Date(y,11,24),'Réveillon de Noël'],[new Date(y,11,31),'Réveillon du Nouvel An']].forEach(([d,t])=>put(d,t,0,'fete'));
+          put(lastSun(y,2),'Passage à l\'heure d\'été (+1 h)',0,'heure');put(lastSun(y,9),'Passage à l\'heure d\'hiver (−1 h)',0,'heure');
+          seasons(y).forEach(([d,n])=>put(d,n+' à '+d.getHours()+'h'+String(d.getMinutes()).padStart(2,'0'),0,'saison'));
+          const k0=Math.floor((y-2000)*12.3685)-1;for(let k=k0;k<k0+15;k++)for(let p=0;p<4;p++){const d=moonPhase(k,p);if(d.getFullYear()===y)put(d,MSYM[p]+' '+MOON[p],0,'lune')}
+          return cache[y]=o}
+          const infoOf=d=>yearInfo(d.getFullYear())[iso(d)]||[];
+
+          const day0=()=>{const t=new Date();return new Date(t.getFullYear(),t.getMonth(),t.getDate())};
+          let sel=day0(),view=new Date(sel.getFullYear(),sel.getMonth(),1);
+          function render(){
+            const today=day0(),isToday=same(sel,today);
+            const w=isoWeek(sel),p=w%2===0,m0=mon(sel);
+            $('now').className='now '+(p?'p':'i');
+            $('nowT').textContent=p?'Semaine paire':'Semaine impaire';
+            $('nowSub').textContent=(isToday?'Cette semaine':'Semaine du '+fmt(sel,true))+' · du '+fmt(m0)+' au '+fmt(add(m0,6));
+            $('nowN').textContent='S'+w;
+            $('date').value=iso(sel);
+            $('mon').textContent=MO[view.getMonth()]+' '+view.getFullYear();
+            let start=mon(view),html='<div class="row h"><span>Sem.</span>'+['L','M','M','J','V','S','D'].map(x=>'<span>'+x+'</span>').join('')+'</div>';
+            const last=new Date(view.getFullYear(),view.getMonth()+1,0);
+            for(let s=start;s<=last;s=add(s,7)){
+              const n=isoWeek(s),c=n%2===0?'p':'i';
+              html+='<div class="row '+c+'"><span class="wk">'+n+'</span>'+[0,1,2,3,4,5,6].map(i=>{const d=add(s,i);let k='d';if(d.getMonth()!==view.getMonth())k+=' o';if(i>4)k+=' we';const inf=infoOf(d);if(inf.some(x=>x.f))k+=' f';if(inf.some(x=>!x.f))k+=' e';if(vacOf(iso(d)))k+=' v';if(same(d,today))k+=' t';if(same(d,sel))k+=' s';return '<span class="'+k+'" data-d="'+iso(d)+'">'+d.getDate()+'</span>'}).join('')+'</div>';
+            }
+            $('cal').innerHTML=html;
+            const DJ=['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
+            const inf=infoOf(sel),vac=vacOf(iso(sel));
+            $('det').innerHTML='<h4>'+DJ[sel.getDay()]+' '+sel.getDate()+' '+MO[sel.getMonth()]+' '+sel.getFullYear()+'</h4><p class="st">Saint du jour : '+SAINTS[sel.getMonth()][sel.getDate()-1]+'</p><div class="tags"><span class="tag">S'+w+' · '+(p?'paire':'impaire')+'</span>'+inf.map(x=>'<span class="tag'+(x.f?' f':'')+'">'+(x.f?'Férié · ':'')+x.txt+'</span>').join('')+(vac?'<span class="tag v">'+vac+'</span>':'')+'</div>';
+            const items=[];const nd=new Date(view.getFullYear(),view.getMonth()+1,0).getDate();
+            for(let i=1;i<=nd;i++){const d=new Date(view.getFullYear(),view.getMonth(),i);infoOf(d).forEach(x=>items.push('<li class="'+(x.f?'f':'')+'" data-d="'+iso(d)+'"><b>'+DJ[d.getDay()].slice(0,3)+'. '+i+'</b><span>'+x.txt+'</span></li>'))}
+            VAC.forEach(v=>{const a=new Date(v[0]+'T12:00'),b=add(new Date(v[1]+'T12:00'),-1);if(a.getFullYear()===view.getFullYear()&&a.getMonth()===view.getMonth())items.push('<li data-d="'+v[0]+'"><b>'+DJ[a.getDay()].slice(0,3)+'. '+a.getDate()+'</b><span>Début : '+v[2]+' (jusqu\'au '+fmt(b,true)+')</span></li>')});
+            items.sort((x,y)=>x.match(/data-d="([^"]+)"/)[1]<y.match(/data-d="([^"]+)"/)[1]?-1:1);
+            $('evT').textContent='En '+MO[view.getMonth()]+' '+view.getFullYear();
+            $('ev').innerHTML=items.join('')||'<li class="empty">Rien de particulier ce mois-ci.</li>';
+            $('upT').textContent=isToday?'Les 8 prochaines semaines':'8 semaines à partir du '+fmt(sel,true);
+            $('up').innerHTML=[0,1,2,3,4,5,6,7].map(i=>{const s=add(m0,7*i),n=isoWeek(s),c=n%2===0?'p':'i';return '<li class="'+c+(i===0?' cur':'')+'"><span>Du '+fmt(s)+' au '+fmt(add(s,6),s.getFullYear()!==add(s,6).getFullYear())+'</span><b>S'+n+' · '+(c==='p'?'paire':'impaire')+'</b></li>'}).join('');
+          }
+          const select=d=>{sel=d;view=new Date(d.getFullYear(),d.getMonth(),1);render()};
+          const go=n=>{const c=$('cal');c.classList.add('f');setTimeout(()=>{view=new Date(view.getFullYear(),view.getMonth()+n,1);render();c.classList.remove('f')},120)};
+          $('prev').onclick=()=>go(-1);$('next').onclick=()=>go(1);
+          $('today').onclick=()=>select(day0());
+          $('date').addEventListener('change',e=>{const v=e.target.value;if(!v)return;const [y,m,d]=v.split('-').map(Number);select(new Date(y,m-1,d))});
+          $('ev').addEventListener('click',e=>{const t=e.target.closest('[data-d]');if(!t)return;const [y,m,d]=t.dataset.d.split('-').map(Number);select(new Date(y,m-1,d));$('det').scrollIntoView({behavior:'smooth',block:'center'})});
+          $('cal').addEventListener('click',e=>{const t=e.target.closest('[data-d]');if(!t)return;const [y,m,d]=t.dataset.d.split('-').map(Number);select(new Date(y,m-1,d))});
+          let x0=null;
+          $('cal').addEventListener('touchstart',e=>{x0=e.touches[0].clientX},{passive:true});
+          $('cal').addEventListener('touchend',e=>{if(x0===null)return;const dx=e.changedTouches[0].clientX-x0;if(Math.abs(dx)>50)go(dx<0?1:-1);x0=null});
+          let lastDay=new Date().toDateString();
+          const tick=()=>{const d=new Date().toDateString();if(d!==lastDay){const wasToday=same(sel,new Date(lastDay));lastDay=d;if(wasToday)select(day0());else render()}};
+          setInterval(tick,60000);
+          document.addEventListener('visibilitychange',()=>{if(!document.hidden)tick()});
+          render();
+          if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+          }
+          </script>
+          </body>
+          </html>
+          FINFICHIER
+          cat > site/manifest.json <<'FINFICHIER'
+          {"name":"Semaines paires impaires","short_name":"Semaines","start_url":"./","scope":"./","display":"standalone","background_color":"#f6f7fb","theme_color":"#1e5bd8","icons":[{"src":"icon-180.png","sizes":"180x180","type":"image/png"},{"src":"icon-512.png","sizes":"512x512","type":"image/png"}]}
+          FINFICHIER
+          cat > site/sw.js <<'FINFICHIER'
+          const C='semaines-v1';
+          self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./','index.html','manifest.json','icon-180.png','icon-512.png'])));self.skipWaiting()});
+          self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==C).map(x=>caches.delete(x)))));self.clients.claim()});
+          self.addEventListener('fetch',e=>{e.respondWith(fetch(e.request).then(r=>{const cp=r.clone();caches.open(C).then(c=>c.put(e.request,cp));return r}).catch(()=>caches.match(e.request,{ignoreSearch:true}).then(r=>r||caches.match('index.html'))))});
+          FINFICHIER
+          base64 -d > site/icon-180.png <<'FINFICHIER'
+          iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAACY0lEQVR4Xu3dsW0UURhG0VlED2QmpB5iUwSlUAQ57ZiQkC4ILBEx
+          I1288z+N9pwGvB59um9WO2vfnp5fNviXdy4Le4wD46BTDpSDTjlQDjrlQDnolAPloFMOlINOOVAOOuVAOeiUA+WgUw6Ug045UA46
+          5UA56JQD5aBTDpSDTjlQDjrlQDnolAPloFMOlINOOVAOOuVAOeiUA+WgUw52vV9ybX59/7Tk517axy8/h1//bfi/JpjFG01OZG4c
+          ZnFHMxMZuuewjPuauZ5D4+CKJsYxM/NHM3BVJ8bBRZ0+joGBP6yzr+3p4+C6jINdxoFx0CkHykGnHCgHnXKgHHTKgXLQKQfKQacc
+          KAedcqAcdMrBrjVfh/xr5ss513X2U6LHlAP3HHTKgXLQKQfKQaccKAedcqAcdMqBctApB8pBpxwoB51yoBx0ix8TXPsYHMccKzhW
+          6JQD5aBbfEP6+/O3/pofyIcfXxf+to4VHCt0yoFy0CkHykGnHCgHnXKgHHTKgXLQKQfKQaccKAedcqAcdIsfE1z7GBzHHCs4VuiU
+          A+WgUw52LX634p/xHFv7VwiUA/ccdMqBctApB8pBpxwoB51yoBx0yoFy0CkHykG3+CP7tR9Jc8yxwrpjxeM85zn72ioH68qxbacP
+          /DGdnY1tUw7WlkM87m4gG9u23Z6eX+7+0g947/pGM7N4NT2OVybyHyZnsXIcXIK3suwyDoyDTjlQDjrlQDnolAPloFMOlINOOVAO
+          OuVAOeiUA+WgUw6Ug045UA465UA56JQD5aBTDpSDTjlQDjrlQDnolAPloFMOdv0BPCU35c9bJaQAAAAASUVORK5CYII=
+          FINFICHIER
+          base64 -d > site/icon-512.png <<'FINFICHIER'
+          iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAIAAAB7GkOtAAAIZ0lEQVR4Xu3dMVLbQBiAUcj4DnRQ+jyp4RA5Sg7hPteB0mVukUmV
+          QIQtG2J59b1XM5bF7L+f1y50e//4fANAz5feLQPwmwAARAkAQJQAAEQJAECUAABECQBAlAAARAkAQJQAAEQJAECUAABECQBAlAAA
+          RAkAQJQAAEQJAECUAABECQBAlAAARAkAQJQAAEQJAECUAABECQBAlAAARAkAQJQAAEQJAECUAABECQBAlAAARAkAQJQAAEQJAECU
+          AABECQBAlAAARAkAQJQAAEQJAECUAABECQBAlAAARAkAQJQAAEQJAECUAABECQBAlAAARAkAQJQAAEQJAECUAABECQBAlAAARAkA
+          QJQAAEQJAECUAABECQBAlAAARAkAQJQAAEQJAECUAABECQBAlAAARAkAQJQAAEQJAECUAABECQBAlAAARAkAQJQAAEQJAECUAABE
+          CQBAlAAARAkAQJQAAEQJAECUAABECQBAlAAARAkAQJQAAEQJAECUAABECQBAlAAARAkAQJQAAEQJAECUAABECQBAlAAARAkAQJQA
+          AEQJAECUAABECQBAlAAARAkAQJQAAEQJAECUAABECQBAlAAARAkAQJQAAEQJAECUAABECQBAlAAARAkAQJQAAEQJAECUAABECQBA
+          lAAARAkAQJQAAEQJAECUAABECQBA1CZ63//Hfrf9Py8M/PHw9OLf8Slu7x+fP+WFsmz6sBQl+CABOJ+tH66EEpxHAM5h64crJAOn
+          8iPwyez+cJ3M5qmcAE5gecEQHAVmcgKYy+4PozCtMwnALNYTjMXMziEAx1lJMCKTe5QAHGENwbjM72ECcIjVA6MzxQcIAECUALzL
+          BwdYB7P8HgGYZsXAmpjoSQIAECUAE3xYgPUx1/8SAIAoAXjLxwRYK9P9hgAARAkAQJQAAEQJwCu+IoR1M+N/EwCAKAEAiBIAgCgB
+          AIgSAIAoAQCIEgCAKAEAiBIAgCgBAIgSAIAoAQCIEgCAKAEAiBIAgCgBAIgSAIAoAQCIEgCAKAEAiBIAgCgBAIgSAIAoAQCIEgCA
+          KAEAiBIAgCgBAIgSAIAoAQCIEgCAKAEAiBIAgCgBAIgSAIAoAQCIEgCAKAEAiBIAgCgBAIgSAIAoAQCIEgCAKAEAiBIAgCgBAIgS
+          AIAoAQCIEgCAKAEAiBIAgCgBAIgSAIAoAQCI2kTvewkPTy9LXBYGs99tB3vHw3ICAIgSAIAoAQCIEgCAKAEAiBIAgCgBAIgSAIAo
+          AQCIEgCAKAEAiBIAgCgBAIgSAIAoAQCIEgCAKAEAiBIAgCgBAIgSAIAoAQCIEgCAKAEAiBIAgCgBAIgSAIAoAQCIEgCAKAEAiBIA
+          gCgBAIgSAIAoAQCIEgCAKAEAiBIAgCgBAIgSAIAoAQCIEgCAKAEAiBIAgCgBAIgSAIAoAQCIEgCAKAEAiBIAgCgBAIgSAIAoAQCI
+          EgCAqE30vpew322XuCzANCcAgCgBAIgSAIAoAQCIEgCAKAEAiBIAgCgBAIgSAIAoAQCIEgCAKAEAiBIAgCgBAIgSAIAoAQCIEgCA
+          KE8Eu5yfX79f7mIwrLsf34Z974NxAgCIEgCAKAEAiBIAgCgBAIgSAIAoAQCIEgCAKAEAiBIAgCgBAIgSAIAoAQCIEgCAKAEAiBIA
+          gCgBAIgSAIAoAQCIEgCAKAEAiBIAgCgBAIgSAIAoAQCIEgCAKAEAiBIAgCgBAIgSAIAoAQCIEgCAKAEAiBIAgCgBAIgSAIAoAQCI
+          EgCAKAEAiBIAgCgBAIgSAIAoAQCIEgCAKAEAiBIAgCgBAIgSAIAoAQCIEgCAKAEAiNpE73sJdz++LXFZgGlOAABRAgAQJQAAUQIA
+          ECUAAFECABAlAABRAgAQJQAAUQIAECUAAFECABAlAABRAgAQJQAAUQIAECUAAFGeCHY5D08vl7sYDGu/2w773gfjBAAQJQAAUQIA
+          ECUAAFECABAlAABRAgAQJQAAUQIAECUAAFECABAlAABRAgAQJQAAUQIAECUAAFECABAlAABRAgAQJQAAUQIAECUAAFECABAlAABR
+          AgAQJQAAUQIAECUAAFECABAlAABRAgAQJQAAUQIAECUAAFECABAlAABRAgAQJQAAUQIAELWJ3vcS9rvtEpcFmOYEABAlAABRAgAQ
+          JQAAUQLwysPTS3QhQIMZ/5sAAEQJAECUALzlhAhrZbrfEACAKAEAiBKACc6JsD7m+l8CABAlANN8WIA1MdGTBOBdVgysg1l+jwAA
+          a2b3P0AADrF0gBUTgCM0AMZlfg8TgOOsIRiRyT1KAGaxkmAsZnaO2/vH5zl/x82Nh/rCAGz98wnAyTzbHa6W3f8kvgI6mRUG18ls
+          nsoJ4HyOAnAlbP3nEYCPkgFYin3/gwTgM4kBXIB9/7MIAECUH4EBogQAIEoAAKIEACBKAACiBAAgSgAAogQAIEoAAKIEACBKAACi
+          BAAgSgAAogQAIEoAAKIEACBKAACiBAAgSgAAogQAIEoAAKIEACBKAACiBAAgSgAAogQAIEoAAKIEACBKAACiBAAgSgAAogQAIEoA
+          AKIEACBKAACiBAAgSgAAogQAIEoAAKIEACBKAACiBAAgSgAAogQAIEoAAKIEACBKAACiBAAgSgAAogQAIEoAAKIEACBKAACiBAAg
+          SgAAogQAIEoAAKIEACBKAACiBAAgSgAAogQAIEoAAKIEACBKAACiBAAgSgAAogQAIEoAAKIEACBKAACiBAAgSgAAogQAIEoAAKIE
+          ACBKAACiBAAgSgAAogQAIEoAAKIEACBKAACiBAAgSgAAogQAIEoAAKIEACBKAACiBAAgSgAAogQAIEoAAKIEACBKAACiBAAgSgAA
+          ogQAIEoAAKIEACDqFzt6fWWDKo93AAAAAElFTkSuQmCC
+          FINFICHIER
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: d
+        uses: actions/deploy-pages@v4
